@@ -46,10 +46,10 @@ np_vertex_table = np.array([
 
 
 def calculate_gradient_contribution(offsets, gis, gradient_map, length):
-    t = 0.5 - offsets[:, 0] ** 2 - offsets[:, 1] ** 2 - offsets[:, 2] ** 2
+    t = 0.5 - offsets[:, 0] ** 2. - offsets[:, 1] ** 2. - offsets[:, 2] ** 2.
     mapped_gis = map_gradients(gradient_map, gis, length)
     dot_products = tf.reduce_sum(mapped_gis * offsets, 1)
-    return tf.to_float(tf.greater_equal(t, 0)) * t ** 4 * dot_products
+    return tf.cast(tf.math.greater_equal(t, 0.), tf.float32) * t ** 4. * dot_products
 
 
 def noise3d(input_vectors, perm, grad3, vertex_table, length):
@@ -57,11 +57,11 @@ def noise3d(input_vectors, perm, grad3, vertex_table, length):
     skewed_vectors = tf.floor(input_vectors + tf.expand_dims(skew_factors, 1))
     unskew_factors = (skewed_vectors[:, 0] + skewed_vectors[:, 1] + skewed_vectors[:, 2]) * 1.0 / 6.0
     offsets_0 = input_vectors - (skewed_vectors - tf.expand_dims(unskew_factors, 1))
-    simplex_vertices = get_simplex_vertices(offsets_0, vertex_table, length)
+    simplex_vertices = get_simplex_vertices(offsets_0, vertex_table, length)  # divided it by 2, doesn't error now
     offsets_1 = offsets_0 - simplex_vertices[:, 0, :] + 1.0 / 6.0
     offsets_2 = offsets_0 - simplex_vertices[:, 1, :] + 1.0 / 3.0
     offsets_3 = offsets_0 - 0.5
-    masked_skewed_vectors = tf.to_int32(skewed_vectors) % 256
+    masked_skewed_vectors = tf.cast(skewed_vectors, tf.int32) % 256
     gi0s = tf.gather_nd(
         perm,
         tf.expand_dims(masked_skewed_vectors[:, 0], 1) +
@@ -75,28 +75,28 @@ def noise3d(input_vectors, perm, grad3, vertex_table, length):
     gi1s = tf.gather_nd(
         perm,
         tf.expand_dims(masked_skewed_vectors[:, 0], 1) +
-        tf.expand_dims(tf.to_int32(simplex_vertices[:, 0, 0]), 1) +
+        tf.expand_dims(tf.cast(simplex_vertices[:, 0, 0], tf.int32), 1) +
         tf.expand_dims(tf.gather_nd(
             perm,
             tf.expand_dims(masked_skewed_vectors[:, 1], 1) +
-            tf.expand_dims(tf.to_int32(simplex_vertices[:, 0, 1]), 1) +
+            tf.expand_dims(tf.cast(simplex_vertices[:, 0, 1], tf.int32), 1) +
             tf.expand_dims(tf.gather_nd(
                 perm,
                 tf.expand_dims(masked_skewed_vectors[:, 2], 1) +
-                tf.expand_dims(tf.to_int32(simplex_vertices[:, 0, 2]), 1)), 1)), 1)
+                tf.expand_dims(tf.cast(simplex_vertices[:, 0, 2], tf.int32), 1)), 1)), 1)
     ) % 12
     gi2s = tf.gather_nd(
         perm,
         tf.expand_dims(masked_skewed_vectors[:, 0], 1) +
-        tf.expand_dims(tf.to_int32(simplex_vertices[:, 1, 0]), 1) +
+        tf.expand_dims(tf.cast(simplex_vertices[:, 1, 0], tf.int32), 1) +
         tf.expand_dims(tf.gather_nd(
             perm,
             tf.expand_dims(masked_skewed_vectors[:, 1], 1) +
-            tf.expand_dims(tf.to_int32(simplex_vertices[:, 1, 1]), 1) +
+            tf.expand_dims(tf.cast(simplex_vertices[:, 1, 1], tf.int32), 1) +
             tf.expand_dims(tf.gather_nd(
                 perm,
                 tf.expand_dims(masked_skewed_vectors[:, 2], 1) +
-                tf.expand_dims(tf.to_int32(simplex_vertices[:, 1, 2]), 1)), 1)), 1)
+                tf.expand_dims(tf.cast(simplex_vertices[:, 1, 2], tf.int32), 1)), 1)), 1)
     ) % 12
     gi3s = tf.gather_nd(
         perm,
@@ -121,43 +121,36 @@ def noise3d(input_vectors, perm, grad3, vertex_table, length):
 
 def calculate_image(noise_values, phases, shape):
     val = tf.floor((tf.add_n(tf.split(
-        2,
-        phases,
         tf.reshape(noise_values, [shape[0], shape[1], phases]) / tf.pow(
             2.0,
-            tf.linspace(0.0, tf.to_float(phases - 1), phases))
-    )) + 1.0) * 128)
-    return tf.concat(2, [val, val, val])
+            tf.linspace(0.0, phases - 1., phases)), phases, 2)) + 1.0) * 128.)
+    return tf.concat([val, val, val], 2)
 
 
 if __name__ == "__main__":
-    shape = (512, 512)
-    phases = 10
+
+    print('is executing eagerly:', tf.executing_eagerly())
+
+    shape = [3840, 2160]
+    phases = 5
     scaling = 200.0
     offset = (0.0, 0.0, 1.7)
-    v_shape = tf.Variable([512, 512], name='shape')
-    v_phases = tf.Variable(5, name='phases')
-    v_scaling = tf.Variable(200.0, name='scaling')
-    v_offset = tf.Variable([0.0, 0.0, 1.7], name='offset')
+    v_shape = tf.constant(shape, name='shape')
+    v_phases = tf.constant(5, name='phases')
+    v_scaling = tf.constant(200.0, name='scaling')
+    v_offset = tf.constant([0.0, 0.0, 1.7], name='offset')
     v_input_vectors = get_input_vectors(v_shape, v_phases, v_scaling, v_offset)
-    perm = tf.Variable(np_perm, name='perm')
-    grad3 = tf.Variable(np_grad3, name='grad3')
+    perm = tf.constant(np_perm, name='perm')
+    grad3 = tf.constant(np_grad3, name='grad3')
     num_steps_burn_in = 10
     num_steps_benchmark = 20
-    vertex_table = tf.Variable(np_vertex_table, name='vertex_table')
+    vertex_table = tf.constant(np_vertex_table, name='vertex_table')
+    start_time = time()
     raw_noise = noise3d(v_input_vectors, perm, grad3, vertex_table, shape[0] * shape[1] * phases)
+    end_time = time()
+    print('Time to calculate one iteration: {:.4f}'.format(end_time - start_time))
     raw_image_data = calculate_image(raw_noise, phases, v_shape)
-    init = tf.initialize_all_variables()
     input_vectors = get_input_vectors(shape, phases, scaling, offset)
     noise = noise3d(input_vectors, np_perm, np_grad3, np_vertex_table, shape[0] * shape[1] * phases)
     image_data = calculate_image(noise, phases, shape)
-    sess = tf.Session()
-    sess.run(init)
-    for i in range(num_steps_burn_in):
-        raw_img = sess.run(image_data)
-    start_time = time()
-    for i in range(num_steps_benchmark):
-        raw_img = sess.run(image_data)
-    print("The calculation took %.4f seconds." % ((time() - start_time) / num_steps_benchmark))
-    # writer = tf.train.SummaryWriter("tf-logs/", sess.graph)  # write logs for TensorBoard
-    show(raw_img.astype(np.uint8))
+    show(image_data.numpy().astype(np.uint8))

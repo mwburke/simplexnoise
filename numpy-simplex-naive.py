@@ -78,14 +78,15 @@ def np_noise3d(v):
 
 
 if __name__ == "__main__":
-    shape = (512, 512)
+    shape = (1000, 512)
     phases = 5
     scaling = 200.0
     input_vectors = get_input_vectors(shape, phases, scaling)
     raw_noise = np.empty(input_vectors.shape[0], dtype=np.float32)
     start_time = time()
-    for i in range(0, input_vectors.shape[0]):
+    for i in range(input_vectors.shape[0]):
         raw_noise[i] = np_noise3d(input_vectors[i])
-    print("The calculation took " + str(time() - start_time) + " seconds.")
+    end_time = time()
+    print("The calculation took {:.4} seconds.".format((end_time - start_time) / input_vectors.shape[0]))
     image_data = sum_phases(raw_noise, phases, shape)
     show(image_data)
