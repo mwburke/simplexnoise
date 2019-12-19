@@ -128,22 +128,17 @@ def calculate_image(noise_values, phases, shape):
 
 
 if __name__ == "__main__":
-
-    print('is executing eagerly:', tf.executing_eagerly())
-
-    shape = [3840, 2160]
-    phases = 5
+    shape = (512, 512)
+    phases = 10
     scaling = 200.0
     offset = (0.0, 0.0, 1.7)
     v_shape = tf.constant(shape, name='shape')
-    v_phases = tf.constant(5, name='phases')
-    v_scaling = tf.constant(200.0, name='scaling')
-    v_offset = tf.constant([0.0, 0.0, 1.7], name='offset')
+    v_phases = tf.constant(phases, name='phases')
+    v_scaling = tf.constant(scaling, name='scaling')
+    v_offset = tf.constant(offset, name='offset')
     v_input_vectors = get_input_vectors(v_shape, v_phases, v_scaling, v_offset)
     perm = tf.constant(np_perm, name='perm')
     grad3 = tf.constant(np_grad3, name='grad3')
-    num_steps_burn_in = 10
-    num_steps_benchmark = 20
     vertex_table = tf.constant(np_vertex_table, name='vertex_table')
     start_time = time()
     raw_noise = noise3d(v_input_vectors, perm, grad3, vertex_table, shape[0] * shape[1] * phases)
@@ -153,4 +148,12 @@ if __name__ == "__main__":
     input_vectors = get_input_vectors(shape, phases, scaling, offset)
     noise = noise3d(input_vectors, np_perm, np_grad3, np_vertex_table, shape[0] * shape[1] * phases)
     image_data = calculate_image(noise, phases, shape)
+    show(image_data.numpy().astype(np.uint8))
+
+    # Custom vector repeating the top quarter of the image 4 times
+    base_values = input_vectors[0:int(input_vectors.shape[0] / 4)]
+    input_vectors = tf.tile(base_values, [4, 1])
+    noise = noise3d(input_vectors, np_perm, np_grad3, np_vertex_table, shape[0] * shape[1] * phases)
+    image_data = calculate_image(noise, phases, shape)
+
     show(image_data.numpy().astype(np.uint8))

@@ -22,8 +22,4 @@ if __name__ == "__main__":
     gradient_map = tf.constant(np_grad3, name='vertex_table')
     gis = tf.Variable([0, 3, 7, 2, 9, 11, 7, 4], name="gis")
     gradients = map_gradients(gradient_map, gis, 8)
-    # init = tf.initialize_all_variables()
-    # sess = tf.Session()
-    # sess.run(init)
-    # print(sess.run(gradients))
     print(gradients)

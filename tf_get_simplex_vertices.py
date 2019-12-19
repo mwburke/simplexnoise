@@ -45,7 +45,4 @@ if __name__ == "__main__":
     test_offsets = tf.constant([[0.2, 0.1, 0.3], [0.03, 0.15, 0.12],
                                 [0.34, 0.21, 0.31], [0.49, 0.0012, 0.237]], name="offsets")
     verts = get_simplex_vertices(test_offsets, vertex_table, 4)
-    init = tf.initialize_all_variables()
-    sess = tf.Session()
-    sess.run(init)
-    print(sess.run(tf.to_int32(verts[:, 0, 1])))
+    print(verts)

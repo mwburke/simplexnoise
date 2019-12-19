@@ -81,11 +81,14 @@ def matrix_noise3d(input_vectors, perm, grad3):
 
 
 if __name__ == "__main__":
-    shape = (3840, 2160)
+    shape = (512, 512)
     phases = 5
     scaling = 200.0
     input_vectors = get_input_vectors(shape, phases, scaling)
-    num_steps_benchmark = 1
+    num_steps_burn_in = 10
+    num_steps_benchmark = 20
+    for i in range(num_steps_burn_in):
+        raw_noise = matrix_noise3d(input_vectors, np_perm, np_grad3)
     start_time = time()
     for i in range(num_steps_benchmark):
         raw_noise = matrix_noise3d(input_vectors, np_perm, np_grad3)
